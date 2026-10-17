@@ -1,0 +1,46 @@
+name: Mise à jour des full sets
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"   # chaque lundi à 4 h UTC
+  workflow_dispatch:       # lancement manuel depuis l'onglet Actions
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-fullsets
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Extraire les listes depuis Wikipédia
+        run: python3 tools/build_fullsets.py --cache build/wiki --out build/raw
+
+      - name: Associer les jaquettes IGDB
+        env:
+          IGDB_CLIENT_ID: ${{ secrets.IGDB_CLIENT_ID }}
+          IGDB_CLIENT_SECRET: ${{ secrets.IGDB_CLIENT_SECRET }}
+        run: python3 tools/enrich_igdb.py --raw build/raw --out data
+
+      - name: Publier si les listes ont changé
+        run: |
+          # L'index change à chaque passage (date) : on ne publie que si une liste a vraiment changé
+          if git diff --quiet -- data ':!data/fullsets-index.json'; then
+            echo "Aucune liste modifiée."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data
+          git commit -m "Mise à jour des full sets ($(date -u +%Y-%m-%d))"
+          git push
