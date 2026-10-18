@@ -25,7 +25,9 @@ ALL = REGIONS
 # pages : pages Wikipédia ; tables : titres de section (regex) des tableaux à lire, sinon le plus grand de chaque page ;
 # default : régions quand le tableau n'a pas de colonne de région ; exclude_tags : marqueurs de jeux dématérialisés ;
 # default_if_empty : régions supposées quand toutes les cases de région sont vides ;
-# digital : la liste mélange jeux physiques et dématérialisés ; split : répartit une page sur plusieurs consoles.
+# digital : la liste mélange jeux physiques et dématérialisés ; split : répartit une page sur plusieurs consoles ;
+# bullets : la ludothèque est une liste à puces « * date - ''Titre'' - [réf] » rangée par année (section
+# racine `section`, sous-sections `exclude` ignorées) au lieu d'un tableau.
 CONSOLES = {
     "atari2600": {"pages": ["List of Atari 2600 games"], "tables": [r"^Retail game releases"], "igdb": [59]},
     "atari5200": {"pages": ["List of Atari 5200 games"], "tables": [r"^Games$"], "default": ["NA"], "igdb": [66]},
@@ -67,6 +69,8 @@ CONSOLES = {
                           "default": ["JP"], "igdb": [120, 119]},
     "wonderSwan": {"pages": ["List of WonderSwan games"], "default": ["JP"], "igdb": [57]},
     "wonderSwanColor": {"pages": ["List of WonderSwan Color games"], "default": ["JP"], "igdb": [123]},
+    "playdia": {"pages": ["Playdia"], "default": ["JP"], "igdb": [308],
+                "bullets": {"section": "Playdia software", "exclude": ["Not for sale"]}},
     "ps2": {"pages": ["List of PlayStation 2 games (A–K)", "List of PlayStation 2 games (L–Z)"],
             "tables": [r"^Games list"], "igdb": [8]},
     "gameCube": {"pages": ["List of GameCube games"], "tables": [r"^Games$"], "igdb": [21]},
@@ -322,9 +326,37 @@ def tables_of(wikitext, patterns):
     return [max(found, key=lambda item: item[1].count("\n|-"))[1]] if found else []
 
 
+def build_bullets(key, config, wikitext, results):
+    """Liste à puces rangée par année (=== 1994 ===), ex. l'article Playdia."""
+    options = config["bullets"]
+    match = re.search(r"^==\s*" + re.escape(options["section"]) + r"\s*==\s*$(.*?)(?=^==[^=])", wikitext, re.M | re.S)
+    if not match:
+        raise SystemExit(f"{key} : section « {options['section']} » introuvable")
+    year = 0
+    skipping = False
+    for line in match.group(1).splitlines():
+        heading = re.match(r"^===\s*(.*?)\s*===\s*$", line)
+        if heading:
+            skipping = heading.group(1) in options.get("exclude", [])
+            found = re.search(r"\b(19|20)\d\d\b", heading.group(1))
+            year = int(found.group(0)) if found else 0
+            continue
+        if skipping or not line.startswith("*"):
+            continue
+        italic = re.search(r"''(.+?)''", line)
+        if not italic:
+            continue
+        title = strip_markup(italic.group(1))
+        if title:
+            add(results, key, title, {}, {}, {region: year for region in config["default"]})
+
+
 def build(key, config, cache, results):
     for page in config["pages"]:
         wikitext = fetch_wikitext(page, cache)
+        if config.get("bullets"):
+            build_bullets(key, config, wikitext, results)
+            continue
         for table in tables_of(wikitext, config.get("tables")):
             headers, rows = parse_rows(table)
             columns = classify_columns(headers)
