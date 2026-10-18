@@ -25,13 +25,14 @@ ALL = REGIONS
 # pages : pages Wikipédia ; tables : titres de section (regex) des tableaux à lire, sinon le plus grand de chaque page ;
 # default : régions quand le tableau n'a pas de colonne de région ; exclude_tags : marqueurs de jeux dématérialisés ;
 # default_if_empty : régions supposées quand toutes les cases de région sont vides ;
-# digital : la liste mélange jeux physiques et dématérialisés ; split : répartit une page sur plusieurs consoles ;
+# digital : la liste mélange jeux physiques et dématérialisés sans les distinguer : console écartée des full sets
+# (seulement construite si on la nomme sur la ligne de commande) ; split : répartit une page sur plusieurs consoles ;
 # bullets : la ludothèque est une liste à puces « * … ''Titre'' … » au lieu d'un tableau : `section` = regex
 # des sections de niveau 2 à lire, `exclude` = sous-sections ignorées, `year` = année par défaut (sinon celle
 # des sous-titres « === 1994 === »), `headings` = un jeu par sous-titre (avec l'année trouvée dans son texte) ;
 # largest : ne garde que le plus grand des tableaux retenus ; caption_regions : régions selon la légende
 # du tableau (« |+ Japanese market ») ; exclude_rows : regex des lignes à ignorer (jeux non sortis…) ;
-# digital_tags : marqueurs « &nbsp;D&nbsp; » des jeux sortis seulement en dématérialisé (gardés, mais à part) ;
+# digital_tags : marqueurs « &nbsp;D&nbsp; » des jeux sortis seulement en dématérialisé (retirés de la liste) ;
 # physical_marker : regex présente sur les seules lignes des jeux sortis en boîte (Wii U : {{dagger}}) ;
 # any_date : l'année peut être dans n'importe quelle colonne de la ligne ; replace : substitutions [regex, remplacement] appliquées au wikitexte avant lecture (modèles gênants).
 CONSOLES = {
@@ -515,7 +516,8 @@ def main():
     args = parser.parse_args()
 
     results = {}
-    for key in args.consoles or CONSOLES:
+    # Les full sets ne comptent que les jeux en boîte : on écarte les listes qui mélangent les deux
+    for key in args.consoles or [k for k, c in CONSOLES.items() if not c.get("digital")]:
         build(key, CONSOLES[key], args.cache, results)
 
     os.makedirs(args.out, exist_ok=True)
@@ -523,27 +525,22 @@ def main():
     for key, config in CONSOLES.items():
         if key not in results:
             continue
-        games = sorted(results[key].values(), key=lambda g: g["title"].lower())
+        games = sorted((g for g in results[key].values() if not g.get("digital")), key=lambda g: g["title"].lower())
         pages = config["pages"] or next(c["pages"] for c in CONSOLES.values()
                                          if key in (c.get("split", {}).get("cd"), *c.get("formats", {}).values()))
-        separated = any(g.get("digital") for g in games)
         payload = {
             "platform": key,
             "source": "Wikipédia — " + ", ".join(pages) + " (CC BY-SA 4.0)",
-            # La liste mélange physique et dématérialisé sans marquer tous les jeux dématérialisés
+            # La liste mélange physique et dématérialisé (seulement si la console est construite explicitement)
             "includesDigital": bool(config.get("digital")),
-            # Les jeux dématérialisés sont marqués « digital » et comptés à part
-            "digitalSeparated": separated,
             "regionsDistinguished": config.get("default") != ALL,
             "igdbPlatforms": config["igdb"],
             "games": games,
         }
         json.dump(payload, open(os.path.join(args.out, f"{key}.json"), "w"), ensure_ascii=False, indent=1)
-        counts = {r: sum(1 for g in games if r in g["release"] and not g.get("digital")) for r in REGIONS}
-        digital_counts = {r: sum(1 for g in games if r in g["release"] and g.get("digital")) for r in REGIONS}
+        counts = {r: sum(1 for g in games if r in g["release"]) for r in REGIONS}
         index.append({"platform": key, "counts": counts, "includesDigital": payload["includesDigital"],
-                      "regionsDistinguished": payload["regionsDistinguished"],
-                      **({"digitalCounts": digital_counts} if separated else {})})
+                      "regionsDistinguished": payload["regionsDistinguished"]})
         print(f"{key:18} {len(games):5} jeux  {counts}", file=sys.stderr)
     json.dump(index, open(os.path.join(args.out, "index.json"), "w"), ensure_ascii=False, indent=1)
 

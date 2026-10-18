@@ -1,7 +1,9 @@
 # RetroShelf — full sets
 
-Listes complètes des jeux de 53 consoles (de l'Atari 2600 à la Nintendo Switch 2), par région
-PAL / US / JAP, utilisées par l'app iOS RetroShelf.
+Listes complètes des jeux sortis en boîte de 60 consoles (de l'Odyssey à la Wii U), par région
+PAL / US / JAP, utilisées par l'app iOS RetroShelf. Les jeux dématérialisés sont retirés ; les consoles
+dont Wikipédia mélange physique et dématérialisé (PSP, 3DS, Vita, PS4, PS5, Xbox One, Xbox Series,
+Switch, Switch 2) sont écartées tant qu'aucune source ne permet de les distinguer.
 
 - `data/<console>.json` : jeux de la console, titres régionaux, années de sortie par région,
   identifiant et jaquette IGDB.
