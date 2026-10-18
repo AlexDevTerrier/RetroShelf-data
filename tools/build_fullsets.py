@@ -83,7 +83,7 @@ CONSOLES = {
     "jaguar": {"pages": ["List of Atari Jaguar games"], "tables": [r"^Cartridge$"], "igdb": [62]},
     "jaguarCD": {"pages": ["List of Atari Jaguar games"], "tables": [r"^CD$"], "igdb": [410]},
     "gx4000": {"pages": ["GX4000"], "tables": [r"^Game library$"], "default": ["PAL"],
-               "exclude_rows": r"Unreleased|Very few copies", "igdb": [506]},
+               "exclude_rows": r"Unreleased|Very few copies", "igdb": [506, 25]},
     "laserActive": {"pages": ["LaserActive"], "tables": [r"^Software$"], "igdb": [487],
                     "replace": [[r"\{\{Rh2?\|[^}]*\}\}", ""]], "any_date": True,
                     "exclude_rows": r"\[\[Myst\]\]",
