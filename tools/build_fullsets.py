@@ -31,6 +31,8 @@ ALL = REGIONS
 # des sous-titres « === 1994 === »), `headings` = un jeu par sous-titre (avec l'année trouvée dans son texte) ;
 # largest : ne garde que le plus grand des tableaux retenus ; caption_regions : régions selon la légende
 # du tableau (« |+ Japanese market ») ; exclude_rows : regex des lignes à ignorer (jeux non sortis…) ;
+# digital_tags : marqueurs « &nbsp;D&nbsp; » des jeux sortis seulement en dématérialisé (gardés, mais à part) ;
+# physical_marker : regex présente sur les seules lignes des jeux sortis en boîte (Wii U : {{dagger}}) ;
 # any_date : l'année peut être dans n'importe quelle colonne de la ligne ; replace : substitutions [regex, remplacement] appliquées au wikitexte avant lecture (modèles gênants).
 CONSOLES = {
     "atari2600": {"pages": ["List of Atari 2600 games"], "tables": [r"^Retail game releases"], "igdb": [59]},
@@ -114,16 +116,17 @@ CONSOLES = {
     "gameBoyAdvance": {"pages": ["List of Game Boy Advance games"], "tables": [r"^List of games"], "igdb": [24]},
     "nGage": {"pages": ["List of N-Gage games"], "tables": [r"^Games$"], "igdb": [42]},
     "ps3": {"pages": [f"List of PlayStation 3 games ({r})" for r in ["A–C", "D–I", "J–P", "Q–Z"]],
-            "exclude_tags": ["D", "F2P"], "igdb": [9]},
+            "digital_tags": ["D", "F2P"], "igdb": [9]},
     "xbox360": {"pages": ["List of Xbox 360 games (A–L)", "List of Xbox 360 games (M–Z)"],
-                "exclude_tags": ["XBLA", "XBLIG", "DL"], "igdb": [12]},
+                "digital_tags": ["XBLA", "XBLIG", "DL"], "igdb": [12]},
     "wii": {"pages": ["List of Wii games"], "tables": [r"^Games$"], "igdb": [5]},
     "ds": {"pages": [f"List of Nintendo DS games ({r})" for r in ["0–C", "D–I", "J–P", "Q–Z"]],
            "tables": [r"^Games$"], "igdb": [20, 159]},
     "psp": {"pages": ["List of PlayStation Portable games"], "tables": [r"^Released"], "digital": True, "igdb": [38]},
     "threeDS": {"pages": ["List of Nintendo 3DS games (0–M)", "List of Nintendo 3DS games (N–Z)"],
                 "tables": [r"^Games$"], "digital": True, "igdb": [37, 137]},
-    "wiiU": {"pages": ["List of Wii U games"], "tables": [r"^Games$"], "digital": True, "igdb": [41]},
+    "wiiU": {"pages": ["List of Wii U games"], "tables": [r"^Games$"], "physical_marker": r"\{\{dagger\}\}",
+             "igdb": [41]},
     "psVita": {"pages": [f"List of PlayStation Vita games ({r})" for r in
                          ["A–D", "E–H", "I–L", "M–O", "P–R", "S", "T–V", "W–Z"]], "digital": True, "igdb": [46]},
     "ps4": {"pages": ["List of PlayStation 4 games (A–L)", "List of PlayStation 4 games (M–Z)"], "digital": True,
@@ -132,7 +135,7 @@ CONSOLES = {
                 "digital": True, "igdb": [49]},
     "nSwitch": {"pages": [f"List of Nintendo Switch games ({r})" for r in
                           ["0–9", "A–Am", "An–Az", "B", "C–G", "H–P", "Q–Z"]],
-                "default": ALL, "exclude_tags": ["D"], "digital": True, "igdb": [130]},
+                "default": ALL, "digital_tags": ["D"], "digital": True, "igdb": [130]},
     "ps5": {"pages": ["List of PlayStation 5 games"], "digital": True, "igdb": [167]},
     "xboxSeries": {"pages": ["List of Xbox Series X and Series S games"], "digital": True, "igdb": [169]},
     "nSwitch2": {"pages": ["List of Nintendo Switch 2 games"], "default": ALL, "digital": True, "igdb": [508]},
@@ -429,6 +432,10 @@ def build(key, config, cache, results):
                     continue
                 if config.get("exclude_rows") and re.search(config["exclude_rows"], "".join(c.raw for c in row)):
                     continue
+                row_text = "".join(c.raw for c in row)
+                values["_digital"] = (any(f"&nbsp;{tag}&nbsp;" in row_text for tag in config.get("digital_tags", []))
+                                      or bool(config.get("physical_marker")
+                                              and not re.search(config["physical_marker"], row_text)))
                 title, regional = parse_title(values["title"])
                 if not title:
                     continue
@@ -484,8 +491,12 @@ def add(results, key, title, regional, values, release):
         existing = games[game_id]
         for region, year in release.items():
             existing["release"].setdefault(region, year)
+        if not values.get("_digital"):
+            existing.pop("digital", None)   # une des lignes est une sortie en boîte
         return
     game = {"id": game_id, "title": title}
+    if values.get("_digital"):
+        game["digital"] = True
     if regional:
         game["titles"] = regional
     if values.get("developer"):
@@ -515,18 +526,24 @@ def main():
         games = sorted(results[key].values(), key=lambda g: g["title"].lower())
         pages = config["pages"] or next(c["pages"] for c in CONSOLES.values()
                                          if key in (c.get("split", {}).get("cd"), *c.get("formats", {}).values()))
+        separated = any(g.get("digital") for g in games)
         payload = {
             "platform": key,
             "source": "Wikipédia — " + ", ".join(pages) + " (CC BY-SA 4.0)",
+            # La liste mélange physique et dématérialisé sans marquer tous les jeux dématérialisés
             "includesDigital": bool(config.get("digital")),
+            # Les jeux dématérialisés sont marqués « digital » et comptés à part
+            "digitalSeparated": separated,
             "regionsDistinguished": config.get("default") != ALL,
             "igdbPlatforms": config["igdb"],
             "games": games,
         }
         json.dump(payload, open(os.path.join(args.out, f"{key}.json"), "w"), ensure_ascii=False, indent=1)
-        counts = {r: sum(1 for g in games if r in g["release"]) for r in REGIONS}
+        counts = {r: sum(1 for g in games if r in g["release"] and not g.get("digital")) for r in REGIONS}
+        digital_counts = {r: sum(1 for g in games if r in g["release"] and g.get("digital")) for r in REGIONS}
         index.append({"platform": key, "counts": counts, "includesDigital": payload["includesDigital"],
-                      "regionsDistinguished": payload["regionsDistinguished"]})
+                      "regionsDistinguished": payload["regionsDistinguished"],
+                      **({"digitalCounts": digital_counts} if separated else {})})
         print(f"{key:18} {len(games):5} jeux  {counts}", file=sys.stderr)
     json.dump(index, open(os.path.join(args.out, "index.json"), "w"), ensure_ascii=False, indent=1)
 
