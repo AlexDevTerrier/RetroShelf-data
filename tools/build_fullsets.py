@@ -26,17 +26,33 @@ ALL = REGIONS
 # default : régions quand le tableau n'a pas de colonne de région ; exclude_tags : marqueurs de jeux dématérialisés ;
 # default_if_empty : régions supposées quand toutes les cases de région sont vides ;
 # digital : la liste mélange jeux physiques et dématérialisés ; split : répartit une page sur plusieurs consoles ;
-# bullets : la ludothèque est une liste à puces « * date - ''Titre'' - [réf] » rangée par année (section
-# racine `section`, sous-sections `exclude` ignorées) au lieu d'un tableau.
+# bullets : la ludothèque est une liste à puces « * … ''Titre'' … » au lieu d'un tableau : `section` = regex
+# des sections de niveau 2 à lire, `exclude` = sous-sections ignorées, `year` = année par défaut (sinon celle
+# des sous-titres « === 1994 === »), `headings` = un jeu par sous-titre (avec l'année trouvée dans son texte) ;
+# largest : ne garde que le plus grand des tableaux retenus ; caption_regions : régions selon la légende
+# du tableau (« |+ Japanese market ») ; exclude_rows : regex des lignes à ignorer (jeux non sortis…) ;
+# any_date : l'année peut être dans n'importe quelle colonne de la ligne ; replace : substitutions [regex, remplacement] appliquées au wikitexte avant lecture (modèles gênants).
 CONSOLES = {
     "atari2600": {"pages": ["List of Atari 2600 games"], "tables": [r"^Retail game releases"], "igdb": [59]},
     "atari5200": {"pages": ["List of Atari 5200 games"], "tables": [r"^Games$"], "default": ["NA"], "igdb": [66]},
     "atari7800": {"pages": ["List of Atari 7800 games"], "tables": [r"^Commercially released"], "igdb": [60]},
+    "pv1000": {"pages": ["PV-1000"], "default": ["JP"], "igdb": [],
+               "bullets": {"section": r"^PV-1000 games$", "year": 1983}},
+    "superCassetteVision": {"pages": ["Super Cassette Vision"], "default": ["JP"], "igdb": [376],
+                            "bullets": {"section": r"^Games$", "exclude": ["Unreleased games"], "year": 1984}},
+    "c64": {"pages": ["List of Commodore 64 games (A–M)", "List of Commodore 64 games (N–Z)"],
+            "default": ["NA", "PAL"], "igdb": [15], "bullets": {"section": r"^([0-9A-Z]|0–9)$", "year": 0}},
     "colecoVision": {"pages": ["List of ColecoVision games"], "tables": [r"^U\.S\.$"], "default": ["NA"], "igdb": [68]},
     "intellivision": {"pages": ["List of Intellivision games"], "tables": [r"^Master component releases"],
                       "default": ["NA"], "igdb": [67]},
     "vectrex": {"pages": ["List of Vectrex games"], "igdb": [70]},
     "odyssey2": {"pages": ["List of Magnavox Odyssey 2 games"], "igdb": [133]},
+    "odyssey": {"pages": ["Magnavox Odyssey"], "tables": [r"^Games$"], "default": ["NA", "PAL"],
+                "default_year": 1972, "igdb": [88]},
+    "channelF": {"pages": ["Fairchild Channel F Videocarts"], "default": ["NA"], "igdb": [127],
+                 "replace": [[r"Videocart[ -](\d+)", r"Videocart-\1"]],
+                 "bullets": {"section": r"^Videocarts$", "headings": True}},
+    "astrocade": {"pages": ["Bally Astrocade"], "tables": [r"^Cartridges$"], "default": ["NA"], "igdb": [91]},
     "nes": {"pages": ["List of Nintendo Entertainment System games"], "igdb": [18, 99]},
     "famicomDisk": {"pages": ["List of Famicom Disk System games"], "tables": [r"^Games$"], "default": ["JP"],
                     "igdb": [51]},
@@ -62,10 +78,29 @@ CONSOLES = {
     "saturn": {"pages": ["List of Sega Saturn games"], "tables": [r"^Games$"], "igdb": [32]},
     "n64": {"pages": ["List of Nintendo 64 games"], "tables": [r"^Games$"], "igdb": [4, 416]},
     "threeDO": {"pages": ["List of 3DO games"], "tables": [r"^Commercially released"], "igdb": [50]},
-    "jaguar": {"pages": ["List of Atari Jaguar games"], "tables": [r"^Cartridge$", r"^CD$"], "igdb": [62, 410]},
+    "jaguar": {"pages": ["List of Atari Jaguar games"], "tables": [r"^Cartridge$"], "igdb": [62]},
+    "jaguarCD": {"pages": ["List of Atari Jaguar games"], "tables": [r"^CD$"], "igdb": [410]},
+    "gx4000": {"pages": ["GX4000"], "tables": [r"^Game library$"], "default": ["PAL"],
+               "exclude_rows": r"Unreleased|Very few copies", "igdb": [506]},
+    "laserActive": {"pages": ["LaserActive"], "tables": [r"^Software$"], "igdb": [487],
+                    "replace": [[r"\{\{Rh2?\|[^}]*\}\}", ""]], "any_date": True,
+                    "exclude_rows": r"\[\[Myst\]\]",
+                    "caption_regions": {"North American": ["NA"], "Japanese": ["JP"]}},
+    "n64DD": {"pages": ["64DD"], "tables": [r"^Released$"], "default": ["JP"], "igdb": [416],
+              # {{nihongo|''Titre''<br />|japonais|romaji}} → ''Titre''
+              "replace": [[r"\{\{nihongo\|", ""], [r"<br\s*/?>\|[^\n]*", ""], [r"<br\s*/?>(?=[^|\n]*\]\])", " "]]},
+    "fmTownsMarty": {"pages": ["List of FM Towns games"], "tables": [r"^Games$"], "default": ["JP"], "igdb": [118]},
+    "amigaCD32": {"pages": ["List of Amiga CD32 games"], "tables": [r"^Games$"], "default": ["PAL", "NA"],
+                  "igdb": [114]},
+    "pcfx": {"pages": ["List of PC-FX games"], "tables": [r"^Games$"], "default": ["JP"], "igdb": [274]},
+    "pippin": {"pages": ["Apple Pippin"], "tables": [r"^Commercially released games$"], "largest": True,
+               "igdb": [476]},
     "virtualBoy": {"pages": ["List of Virtual Boy games"], "igdb": [87]},
     "gameBoyColor": {"pages": ["List of Game Boy Color games"], "tables": [r"^List of games"], "igdb": [22]},
-    "neoGeoPocketColor": {"pages": ["List of Neo Geo Pocket games"], "tables": [r"^Neo Geo Pocket"],
+    "neoGeoPocket": {"pages": ["List of Neo Geo Pocket games"], "tables": [r"^Neo Geo Pocket$"], "default": ["JP"],
+                     "igdb": [119]},
+    "neoGeoPocketColor": {"pages": ["List of Neo Geo Pocket games"], "tables": [r"^Neo Geo Pocket Color$"],
+                          "largest": True,
                           "default": ["JP"], "igdb": [120, 119]},
     "wonderSwan": {"pages": ["List of WonderSwan games"], "default": ["JP"], "igdb": [57]},
     "wonderSwanColor": {"pages": ["List of WonderSwan Color games"], "default": ["JP"], "igdb": [123]},
@@ -267,7 +302,7 @@ def classify_columns(header_rows):
                 kind = "regionlist"
             elif leaf in ("format",):
                 kind = "format"
-            elif "first released" in leaf or leaf.startswith("release date") or leaf in ("released", "year"):
+            elif "first released" in leaf or leaf.startswith("release date") or leaf in ("released", "year", "release"):
                 kind = "date"
             elif leaf in ("mvs", "aes", "cd"):
                 kind = "fmt:" + leaf
@@ -327,37 +362,60 @@ def tables_of(wikitext, patterns):
 
 
 def build_bullets(key, config, wikitext, results):
-    """Liste à puces rangée par année (=== 1994 ===), ex. l'article Playdia."""
+    """Ludothèque en liste à puces (ou en sous-titres) plutôt qu'en tableau."""
     options = config["bullets"]
-    match = re.search(r"^==\s*" + re.escape(options["section"]) + r"\s*==\s*$(.*?)(?=^==[^=])", wikitext, re.M | re.S)
-    if not match:
-        raise SystemExit(f"{key} : section « {options['section']} » introuvable")
-    year = 0
-    skipping = False
-    for line in match.group(1).splitlines():
-        heading = re.match(r"^===\s*(.*?)\s*===\s*$", line)
-        if heading:
-            skipping = heading.group(1) in options.get("exclude", [])
-            found = re.search(r"\b(19|20)\d\d\b", heading.group(1))
-            year = int(found.group(0)) if found else 0
+    sections = re.split(r"^==([^=].*?)==\s*$", wikitext, flags=re.M)
+    found = False
+    for name, body in zip(sections[1::2], sections[2::2]):
+        if not re.search(options["section"], strip_markup(name).strip()):
             continue
-        if skipping or not line.startswith("*"):
+        found = True
+        if options.get("headings"):
+            parts = re.split(r"^===\s*(.*?)\s*===\s*$", body, flags=re.M)
+            for heading, text in zip(parts[1::2], parts[2::2]):
+                title = strip_markup(heading).strip()
+                year = re.search(r"\b(19[789]\d|20[0-4]\d)\b", text)
+                if title:
+                    add(results, key, title, {}, {}, {r: int(year.group(1)) if year else 0 for r in config["default"]})
             continue
-        italic = re.search(r"''(.+?)''", line)
-        if not italic:
-            continue
-        title = strip_markup(italic.group(1))
-        if title:
-            add(results, key, title, {}, {}, {region: year for region in config["default"]})
+        year = options.get("year", 0)
+        skipping = False
+        for line in body.splitlines():
+            heading = re.match(r"^===\s*(.*?)\s*===\s*$", line)
+            if heading:
+                skipping = heading.group(1) in options.get("exclude", [])
+                found_year = re.search(r"\b(19|20)\d\d\b", heading.group(1))
+                year = int(found_year.group(0)) if found_year else options.get("year", 0)
+                continue
+            if skipping or not line.startswith("*") or line.startswith("**"):
+                continue
+            italic = re.search(r"''(.+?)''", line)
+            if not italic:
+                continue
+            title = strip_markup(italic.group(1))
+            if title:
+                add(results, key, title, {}, {}, {region: year for region in config["default"]})
+    if not found:
+        raise SystemExit(f"{key} : aucune section « {options['section']} »")
 
 
 def build(key, config, cache, results):
     for page in config["pages"]:
         wikitext = fetch_wikitext(page, cache)
+        for pattern, replacement in config.get("replace", []):
+            wikitext = re.sub(pattern, replacement, wikitext)
         if config.get("bullets"):
             build_bullets(key, config, wikitext, results)
             continue
-        for table in tables_of(wikitext, config.get("tables")):
+        tables = tables_of(wikitext, config.get("tables"))
+        if config.get("largest") and tables:
+            tables = [max(tables, key=lambda t: t.count("\n|-"))]
+        for table in tables:
+            default = config.get("default")
+            caption = re.search(r"^\|\+\s*(.+)$", table, re.M)
+            for label, regions in config.get("caption_regions", {}).items():
+                if caption and label in caption.group(1):
+                    default = regions
             headers, rows = parse_rows(table)
             columns = classify_columns(headers)
             for row in expand(rows):
@@ -368,6 +426,8 @@ def build(key, config, cache, results):
                 if "title" not in values:
                     continue
                 if any(f"&nbsp;{tag}&nbsp;" in "".join(c.raw for c in row) for tag in config.get("exclude_tags", [])):
+                    continue
+                if config.get("exclude_rows") and re.search(config["exclude_rows"], "".join(c.raw for c in row)):
                     continue
                 title, regional = parse_title(values["title"])
                 if not title:
@@ -388,16 +448,21 @@ def build(key, config, cache, results):
                 if (not release and config.get("default_if_empty")
                         and not any(strip_markup(values.get(r, "")) for r in REGIONS)):
                     release = {r: release_year(values.get("date", "")) or 0 for r in config["default_if_empty"]}
-                if not release and config.get("default") and not any(r in columns for r in REGIONS):
+                if not release and default and not any(r in columns for r in REGIONS):
                     year = release_year(values["date"]) if "date" in values else 0
+                    if year is None and config.get("any_date"):
+                        year = 0   # date dans une autre colonne (ex. LaserActive : LD-ROM² ou Mega LD)
                     if year is not None:
-                        release = {r: year for r in config["default"]}
+                        release = {r: year for r in default}
                 if not release:
                     continue
-                if 0 in release.values() and "date" in values:
-                    first = re.search(r"\b(19[789]\d|20[0-4]\d)\b", values["date"])
-                    if first:
-                        release = {r: (y or int(first.group(1))) for r, y in release.items()}
+                if 0 in release.values():
+                    # Année absente de la colonne de date : la première trouvée dans la ligne, sinon celle par défaut
+                    year_pattern = r"\b(19[789]\d|20[0-4]\d)\b"
+                    first = (re.search(year_pattern, values.get("date", ""))
+                             or re.search(year_pattern, " ".join(c.raw for c in row)))
+                    fallback = int(first.group(1)) if first else config.get("default_year", 0)
+                    release = {r: (y or fallback) for r, y in release.items()}
 
                 target = key
                 if config.get("split") and "format" in values:
